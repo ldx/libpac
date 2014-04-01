@@ -178,12 +178,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    pac_init(notify, (void *)(long)n[1]);
+    pac_init(js, notify, (void *)(long)n[1]);
 
     for (i = 0; i < 100; i++) {
         snprintf(url, sizeof(url) - 1, "http://google.com/?req=%d", i);
         snprintf(host, sizeof(host) - 1, "google.com");
-        pac_find_proxy(js, url, host, proxy_found, NULL);
+        pac_find_proxy(url, host, proxy_found, NULL);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         if (is_notified(n[0], &tv))

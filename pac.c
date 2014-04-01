@@ -19,12 +19,12 @@
 
 #define PAC_THREADS 4
 
+static char *javascript;  /* JS code containing FindProxyForURL. */
 static pthread_key_t ctx_key;
 static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 static threadpool_t *threadpool;
 
 struct proxy_args {
-    char *js;
     char *url;
     char *host;
     void (*cb)(char *, void *);
@@ -125,14 +125,22 @@ static void destroy_ctx(void *arg)
     duk_destroy_heap(ctx);
 }
 
-static duk_context *get_ctx(char *js)
+static duk_context *create_ctx(char *js)
 {
     duk_context *ctx = pthread_getspecific(ctx_key);
 
-    if (!ctx) {
-        ctx = alloc_ctx(js);
-        pthread_setspecific(ctx_key, ctx);
-    }
+    if (ctx)
+        destroy_ctx(ctx);
+
+    ctx = alloc_ctx(js);
+    pthread_setspecific(ctx_key, ctx);
+
+    return ctx;
+}
+
+static duk_context *get_ctx(void)
+{
+    duk_context *ctx = pthread_getspecific(ctx_key);
 
     return ctx;
 }
@@ -166,7 +174,6 @@ static void main_result(void *arg)
 
     pa->cb(pa->result, pa->arg);
 
-    free(pa->js);
     free(pa->host);
     free(pa->url);
     free(pa);
@@ -175,7 +182,10 @@ static void main_result(void *arg)
 static void _pac_find_proxy(void *arg)
 {
     struct proxy_args *pa = arg;
-    duk_context *ctx = get_ctx(pa->js);
+    duk_context *ctx = get_ctx();
+
+    if (!ctx)
+        ctx = create_ctx(javascript);
 
     if (ctx) {
         pa->result = find_proxy(ctx, pa->url, pa->host);
@@ -184,7 +194,7 @@ static void _pac_find_proxy(void *arg)
     threadpool_schedule_back(threadpool, main_result, pa);
 }
 
-int pac_find_proxy(char *js, char *url, char *host,
+int pac_find_proxy(char *url, char *host,
                    void (*cb)(char *_result, void *_arg), void *arg)
 {
     struct proxy_args *pa = malloc(sizeof(struct proxy_args));
@@ -194,14 +204,13 @@ int pac_find_proxy(char *js, char *url, char *host,
         return -1;
     }
 
-    pa->js = strdup(js);
     pa->url = strdup(url);
     pa->host = strdup(host);
     pa->arg = arg;
     pa->cb = cb;
     pa->result = NULL;
 
-    if (!pa->js || !pa->url || !pa->host) {
+    if (!pa->url || !pa->host) {
         fprintf(stderr, "Failed to allocate proxy args\n");
         return -1;
     }
@@ -227,9 +236,11 @@ static void init_key(void)
     }
 }
 
-int pac_init(void (*notify_cb)(void *), void *arg)
+int pac_init(char *js, void (*notify_cb)(void *), void *arg)
 {
     pthread_once(&key_once, init_key);
+
+    javascript = js;
 
     threadpool = threadpool_create(PAC_THREADS, notify_cb, arg);
     if (!threadpool)
