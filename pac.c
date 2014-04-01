@@ -189,6 +189,8 @@ static void _pac_find_proxy(void *arg)
 
     if (ctx) {
         pa->result = find_proxy(ctx, pa->url, pa->host);
+    } else {
+        fprintf(stderr, "Failed to allocated JS context\n");
     }
 
     threadpool_schedule_back(threadpool, main_result, pa);
@@ -238,13 +240,18 @@ static void init_key(void)
 
 int pac_init(char *js, void (*notify_cb)(void *), void *arg)
 {
-    pthread_once(&key_once, init_key);
+    if (pthread_once(&key_once, init_key)) {
+        perror("Creating thread key");
+        return -1;
+    }
 
     javascript = js;
 
     threadpool = threadpool_create(PAC_THREADS, notify_cb, arg);
-    if (!threadpool)
+    if (!threadpool) {
+        fprintf(stderr, "Failed to create thread pool\n");
         return -1;
+    }
 
     return 0;
 }
