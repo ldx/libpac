@@ -7,7 +7,7 @@ AM_LDFLAGS = @LOCAL_LDFLAGS@ $(EXTRA_LDFLAGS)
 
 LIBS += $(EXTRA_LIBS)
 
-SUBDIRS = .
+SUBDIRS = . tests
 
 include_HEADERS = pac.h
 
@@ -20,8 +20,3 @@ SOURCES = duktape.c pac.c threadpool.c util.c
 lib_LTLIBRARIES = libpac.la
 libpac_la_SOURCES = $(SOURCES)
 libpac_la_LDFLAGS = -version-info $(LIBRARY_VERSION)
-
-bin_PROGRAMS = example
-example_SOURCES = example.c
-example_CPPFLAGS = $(AM_CPPFLAGS)
-example_LDADD = libpac.la

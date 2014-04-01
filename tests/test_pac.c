@@ -132,9 +132,10 @@ out:
 #endif
 }
 
-static void usage_exit(char *prog)
+static void usage(char *prog)
 {
-    fprintf(stderr, "Usage: %s <PAC javascript code>\n", prog);
+    fprintf(stderr, "Usage: %s <PAC javascript code> <URL> <host> "
+            "[<URL> <host> ...]\n", prog);
     fflush(stderr);
     exit(1);
 }
@@ -156,7 +157,7 @@ static void proxy_found(char *proxy, void *arg)
 int main(int argc, char *argv[])
 {
     int i;
-    char url[64], host[32], *js;
+    char *url, *host, *js;
     struct timeval tv;
     notifier_t n[2];
 
@@ -168,21 +169,21 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    if (argc <= 1)
-        usage_exit(argv[0]);
+    if (argc <= 2 || argc % 2 != 0)
+        usage(argv[0]);
 
     js = argv[1];
 
     if (create_notifier(n) < 0) {
         fprintf(stderr, "Failed to create notifier\n");
-        return 1;
+        exit(1);
     }
 
     pac_init(js, notify, (void *)(long)n[1]);
 
-    for (i = 0; i < 100; i++) {
-        snprintf(url, sizeof(url) - 1, "http://google.com/?req=%d", i);
-        snprintf(host, sizeof(host) - 1, "google.com");
+    for (i = 2; i < argc; i += 2) {
+        url = argv[i];
+        host = argv[i + 1];
         pac_find_proxy(url, host, proxy_found, NULL);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
@@ -190,14 +191,15 @@ int main(int argc, char *argv[])
             pac_run_callbacks();
     }
 
-    while (finished < 100) {
+    i = 0;
+    while (finished < argc / 2 - 1) {
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         if (is_notified(n[0], &tv))
             pac_run_callbacks();
+        if (++i > 60)
+            exit(1);
     }
-
-    sleep(1);
 
     return 0;
 }
