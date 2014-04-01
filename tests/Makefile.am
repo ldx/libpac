@@ -10,3 +10,5 @@ LIBS += $(EXTRA_LIBS) ../libpac.la
 bin_PROGRAMS = test_pac
 test_pac_SOURCES = test_pac.c
 test_pac_CPPFLAGS = $(AM_CPPFLAGS)
+
+TESTS = test1.sh
