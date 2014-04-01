@@ -43,10 +43,13 @@ tags
 /config.guess.dh-orig
 /config.sub.dh-orig
 
-/example
-/example.exe
+test_pac
+test_pac.exe
 
 /test-driver
+tests/test-suite.log
+tests/test*.log
+tests/test*.trs
 
 /build/
 
