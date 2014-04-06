@@ -1,0 +1,14 @@
+#!/bin/sh
+
+test_proxy() {
+    _url="$1"
+    _host="$2"
+    _expected_proxy="$3"
+    _res=$(./test_pac "$JS" $_url $_host)
+    if [ "$_res" != "$_expected_proxy" ]; then
+        echo "FAILED:" $_res "!=" $_expected_proxy
+        RETVAL=1
+    else
+        echo "OK:" $_url $_host "->" $_res
+    fi
+}
