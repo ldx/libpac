@@ -11,4 +11,4 @@ bin_PROGRAMS = test_pac
 test_pac_SOURCES = test_pac.c
 test_pac_CPPFLAGS = $(AM_CPPFLAGS)
 
-TESTS = test1.sh
+TESTS = test1.sh test2.sh test3.sh
