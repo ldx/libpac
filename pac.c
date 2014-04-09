@@ -89,9 +89,11 @@ static int my_ip_address_ex(duk_context *ctx)
 
 static void *alloc_ctx(char *js)
 {
-    duk_context *ctx = duk_create_heap(NULL, NULL, NULL, NULL, fatal_handler);
+    duk_context *ctx;
 
     ctx = duk_create_heap(NULL, NULL, NULL, NULL, fatal_handler);
+    if (!ctx)
+        return ctx;
 
     duk_push_global_object(ctx);
     duk_push_c_function(ctx, dns_resolve, 1 /*nargs*/);
