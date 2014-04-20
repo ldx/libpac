@@ -18,6 +18,13 @@
 
 #include "util.h"
 
+#ifndef	INADDR_NONE
+#define	INADDR_NONE 0xffffffff
+#endif
+#ifndef	IN_MULTICAST
+#define	IN_MULTICAST(i) (((u_int32_t)(i) & 0xf0000000) == 0xe0000000)
+#endif
+
 static struct addrinfo *util_getaddrinfo(const char *node, const char *serv,
                                          int flags)
 {
