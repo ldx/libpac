@@ -11,6 +11,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #endif
+#if defined(__APPLE__)
+#include <sys/select.h>
+#endif
 
 #include "pac.h"
 
