@@ -41,6 +41,7 @@ tags
 /configure-stamp
 /config.guess.dh-orig
 /config.sub.dh-orig
+/m4/*.m4
 
 test_pac
 test_pac.exe
