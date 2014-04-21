@@ -45,6 +45,7 @@ AC_SEARCH_LIBS([pthread_create], [pthread], [], [AC_MSG_ERROR([not found])])
 AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR([not found])])
 
 if test "$bwin32" = true; then
+    AC_CHECK_LIB(iphlpapi, main)
     AC_CHECK_LIB(kernel32, main)
     AC_CHECK_LIB(ws2_32, main)
     AC_CHECK_LIB(gdi32, main)
