@@ -72,7 +72,7 @@ int create_notifier(notifier_t not[2])
 #if defined(_WIN32) || defined(__CYGWIN__)
     SOCKET listener = -1, connector = -1, acceptor = -1;
     struct sockaddr_in listen_addr, connect_addr;
-    socklen_t size;
+    int size;
 
     listener = socket(AF_INET, SOCK_STREAM, 0);
     if (listener < 0)
