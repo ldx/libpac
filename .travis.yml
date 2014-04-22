@@ -1,4 +1,4 @@
-language: objective-c
+language: c
 compiler: gcc
 script: autoreconf -i && ./configure && make && make check
 after_failure: cat tests/test-suite.log
