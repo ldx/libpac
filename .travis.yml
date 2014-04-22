@@ -1,4 +1,4 @@
-language: c
+language: objective-c
 compiler: gcc
 script: autoreconf -i && ./configure && make && make check
 after_failure:
