@@ -156,7 +156,7 @@ static char *find_proxy(duk_context *ctx, char *url, char *host)
     duk_push_string(ctx, url);
     duk_push_string(ctx, host);
 
-    if (duk_pcall(ctx, 2 /*nargs*/, DUK_INVALID_INDEX) == DUK_EXEC_SUCCESS) {
+    if (duk_pcall(ctx, 2 /*nargs*/) == DUK_EXEC_SUCCESS) {
         proxy = strdup(duk_to_string(ctx, -1));
         if (!proxy)
             fprintf(stderr, "Error allocating proxy string\n");
