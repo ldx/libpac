@@ -1,0 +1,6 @@
+language: objective-c
+compiler: gcc
+script: ./configure && make && make check
+notifications:
+  email:
+    - v.nebehaj@gmail.com
