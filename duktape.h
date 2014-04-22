@@ -1,8 +1,8 @@
 /*
- *  Duktape public API for Duktape 0.9.99.
+ *  Duktape public API for Duktape 0.10.0.
  *  See the API reference for documentation on call semantics.
  *
- *  Git commit a380599c3d965b835c9c0c59081830968326dbc5 (v0.9.0-392-ga380599).
+ *  Git commit 78c73a152c35749ff5fe237209c353503ea6534d (v0.9.0-664-g78c73a1).
  *
  *  See Duktape AUTHORS.txt and LICENSE.txt for copyright and
  *  licensing information.
@@ -88,9 +88,13 @@ typedef int duk_bool_t;
 typedef size_t duk_size_t;
 
 struct duk_memory_functions;
+struct duk_function_list_entry;
+struct duk_number_list_entry;
 
 typedef void duk_context;
 typedef struct duk_memory_functions duk_memory_functions;
+typedef struct duk_function_list_entry duk_function_list_entry;
+typedef struct duk_number_list_entry duk_number_list_entry;
 
 typedef duk_ret_t (*duk_c_function)(duk_context *ctx);
 typedef void *(*duk_alloc_function) (void *udata, duk_size_t size);
@@ -108,6 +112,17 @@ struct duk_memory_functions {
 	void *udata;
 };
 
+struct duk_function_list_entry {
+	const char *key;
+	duk_c_function value;
+	int nargs;
+};
+
+struct duk_number_list_entry {
+	const char *key;
+	double value;
+};
+
 /*
  *  Constants
  */
@@ -118,7 +133,7 @@ struct duk_memory_functions {
  * have 99 for patch level (e.g. 0.10.99 would be a development version
  * after 0.10.0 but before the next official release).
  */
-#define DUK_VERSION                       999L
+#define DUK_VERSION                       1000L
 
 /* Used to represent invalid index; if caller uses this without checking,
  * this index will map to a non-existent stack entry.  Also used in some
@@ -172,10 +187,15 @@ struct duk_memory_functions {
 #define DUK_ENUM_ARRAY_INDICES_ONLY       (1 << 3)    /* only enumerate array indices */
 #define DUK_ENUM_SORT_ARRAY_INDICES       (1 << 4)    /* sort array indices, use with DUK_ENUM_ARRAY_INDICES_ONLY */
 
-/* Compilation flags for duk_compile() */
+/* Compilation flags for duk_compile() and duk_eval() */
 #define DUK_COMPILE_EVAL                  (1 << 0)    /* compile eval code (instead of program) */
 #define DUK_COMPILE_FUNCTION              (1 << 1)    /* compile function code (instead of program) */
 #define DUK_COMPILE_STRICT                (1 << 2)    /* use strict (outer) context for program, eval, or function */
+#define DUK_COMPILE_SAFE                  (1 << 3)    /* (internal) catch compilation errors */
+#define DUK_COMPILE_NORESULT              (1 << 4)    /* (internal) omit eval result */
+
+/* Flags for duk_push_thread_raw() */
+#define DUK_THREAD_NEW_GLOBAL_ENV         (1 << 0)    /* create a new global environment */
 
 /* Duktape specific error codes */
 #define DUK_ERR_UNIMPLEMENTED_ERROR       50   /* UnimplementedError */
@@ -355,8 +375,14 @@ void duk_push_thread_stash(duk_context *ctx, duk_context *target_ctx);
 
 int duk_push_object(duk_context *ctx);
 int duk_push_array(duk_context *ctx);
-int duk_push_thread(duk_context *ctx);
 int duk_push_c_function(duk_context *ctx, duk_c_function func, int nargs);
+int duk_push_thread_raw(duk_context *ctx, int flags);
+
+#define duk_push_thread(ctx) \
+	duk_push_thread_raw((ctx), 0 /*flags*/)
+
+#define duk_push_thread_new_globalenv(ctx) \
+	duk_push_thread_raw((ctx), DUK_THREAD_NEW_GLOBAL_ENV /*flags*/)
 
 int duk_push_error_object_raw(duk_context *ctx, int err_code, const char *filename, int line, const char *fmt, ...);
 #ifdef DUK_API_VARIADIC_MACROS
@@ -479,6 +505,11 @@ void duk_to_object(duk_context *ctx, int index);
 void duk_to_defaultvalue(duk_context *ctx, int index, int hint);
 void duk_to_primitive(duk_context *ctx, int index, int hint);
 
+/* safe variants of a few coercion operations */
+const char *duk_safe_to_lstring(duk_context *ctx, int index, duk_size_t *out_len);
+#define duk_safe_to_string(ctx,index) \
+	duk_safe_to_lstring((ctx), (index), NULL)
+
 /*
  *  Misc conversion
  */
@@ -519,6 +550,13 @@ int duk_has_prop_string(duk_context *ctx, int obj_index, const char *key);
 int duk_has_prop_index(duk_context *ctx, int obj_index, unsigned int arr_index);
 
 /*
+ *  Module helpers: put multiple function or constant properties
+ */
+
+void duk_put_function_list(duk_context *ctx, int obj_index, const duk_function_list_entry *funcs);
+void duk_put_number_list(duk_context *ctx, int obj_index, const duk_number_list_entry *numbers);
+
+/*
  *  Variable access
  */
 
@@ -546,6 +584,7 @@ void duk_decode_string(duk_context *ctx, int index, duk_decode_char_function cal
 void duk_map_string(duk_context *ctx, int index, duk_map_char_function callback, void *udata);
 void duk_substring(duk_context *ctx, int index, duk_size_t start_offset, duk_size_t end_offset);
 void duk_trim(duk_context *ctx, int index);
+int duk_char_code_at(duk_context *ctx, int index, duk_size_t char_offset);
 
 /*
  *  Ecmascript operators
@@ -556,20 +595,16 @@ int duk_strict_equals(duk_context *ctx, int index1, int index2);
 
 /*
  *  Function (method) calls
- *
- *  If 'errhandler_index' is DUK_INVALID_INDEX, the current errhandler will be
- *  used.  If 'errhandler_index' points to an undefined value in the stack,
- *  a NULL errhandler will be used, replacing any existing errhandler.
  */
 
 void duk_call(duk_context *ctx, int nargs);
 void duk_call_method(duk_context *ctx, int nargs);
 void duk_call_prop(duk_context *ctx, int obj_index, int nargs);
-int duk_pcall(duk_context *ctx, int nargs, int errhandler_index);
-int duk_pcall_method(duk_context *ctx, int nargs, int errhandler_index);
-int duk_pcall_prop(duk_context *ctx, int obj_index, int nargs, int errhandler_index);
+int duk_pcall(duk_context *ctx, int nargs);
+int duk_pcall_method(duk_context *ctx, int nargs);
+int duk_pcall_prop(duk_context *ctx, int obj_index, int nargs);
 void duk_new(duk_context *ctx, int nargs);
-int duk_safe_call(duk_context *ctx, duk_safe_call_function func, int nargs, int nrets, int errhandler_index);
+int duk_safe_call(duk_context *ctx, duk_safe_call_function func, int nargs, int nrets);
 
 /*
  *  Thread management
@@ -583,52 +618,100 @@ int duk_safe_call(duk_context *ctx, duk_safe_call_function func, int nargs, int 
  *  Compilation and evaluation
  */
 
-void duk_eval_raw(duk_context *ctx);
-void duk_compile(duk_context *ctx, int flags);
+int duk_eval_raw(duk_context *ctx, int flags);
+int duk_compile_raw(duk_context *ctx, int flags);
 
 #define duk_eval(ctx)  \
-	do { \
-		(void) duk_push_string((ctx),__FILE__); \
-		duk_eval_raw((ctx)); \
-	} while (0)
+	((void) duk_push_string((ctx), __FILE__), \
+	 (void) duk_eval_raw((ctx), DUK_COMPILE_EVAL))
+
+#define duk_eval_noresult(ctx)  \
+	((void) duk_push_string((ctx), __FILE__), \
+	 (void) duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_NORESULT))
+
+#define duk_peval(ctx)  \
+	((void) duk_push_string((ctx), __FILE__), \
+	 duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_SAFE))
+
+#define duk_peval_noresult(ctx)  \
+	((void) duk_push_string((ctx), __FILE__), \
+	 duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_NORESULT))
+
+#define duk_compile(ctx,flags)  \
+	((void) duk_compile_raw((ctx), (flags)))
+
+#define duk_pcompile(ctx,flags)  \
+	(duk_compile_raw((ctx), (flags) | DUK_COMPILE_SAFE))
 
 #define duk_eval_string(ctx,src)  \
-	do { \
-		(void) duk_push_string((ctx),(src)); \
-		(void) duk_push_string((ctx),__FILE__); \
-		duk_eval_raw((ctx)); \
-	} while (0)
+	((void) duk_push_string((ctx), (src)), \
+	 (void) duk_push_string((ctx), __FILE__), \
+	 (void) duk_eval_raw((ctx), DUK_COMPILE_EVAL))
+
+#define duk_eval_string_noresult(ctx,src)  \
+	((void) duk_push_string((ctx), (src)), \
+	 (void) duk_push_string((ctx), __FILE__), \
+	 (void) duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_NORESULT))
+
+#define duk_peval_string(ctx,src)  \
+	((void) duk_push_string((ctx), (src)), \
+	 (void) duk_push_string((ctx), __FILE__), \
+	 duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_SAFE))
+
+#define duk_peval_string_noresult(ctx,src)  \
+	((void) duk_push_string((ctx), (src)), \
+	 (void) duk_push_string((ctx), __FILE__), \
+	 duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_NORESULT))
 
 #define duk_compile_string(ctx,flags,src)  \
-	do { \
-		(void) duk_push_string((ctx),(src)); \
-		(void) duk_push_string((ctx),__FILE__); \
-		duk_compile((ctx), (flags)); \
-	} while (0)
+	((void) duk_push_string((ctx), (src)), \
+	 (void) duk_push_string((ctx), __FILE__), \
+	 (void) duk_compile_raw((ctx), (flags)))
+
+#define duk_pcompile_string(ctx,flags,src)  \
+	((void) duk_push_string((ctx), (src)), \
+	 (void) duk_push_string((ctx), __FILE__), \
+	 duk_compile_raw((ctx), (flags) | DUK_COMPILE_SAFE))
 
 #define duk_eval_file(ctx,path)  \
-	do { \
-		(void) duk_push_string_file((ctx),(path)); \
-		(void) duk_push_string((ctx),(path)); \
-		duk_eval_raw((ctx)); \
-	} while (0)
+	((void) duk_push_string_file((ctx), (path)), \
+	 (void) duk_push_string((ctx), (path)), \
+	 (void) duk_eval_raw((ctx), DUK_COMPILE_EVAL))
+
+#define duk_eval_file_noresult(ctx,path)  \
+	((void) duk_push_string_file((ctx), (path)), \
+	 (void) duk_push_string((ctx), (path)), \
+	 (void) duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_NORESULT))
+
+#define duk_peval_file(ctx,path)  \
+	((void) duk_push_string_file((ctx), (path)), \
+	 (void) duk_push_string((ctx), (path)), \
+	 duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_SAFE))
+
+#define duk_peval_file_noresult(ctx,path)  \
+	((void) duk_push_string_file((ctx), (path)), \
+	 (void) duk_push_string((ctx), (path)), \
+	 duk_eval_raw((ctx), DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_NORESULT))
 
 #define duk_compile_file(ctx,flags,path)  \
-	do { \
-		(void) duk_push_string_file((ctx),(path)); \
-		(void) duk_push_string((ctx),(path)); \
-		duk_compile((ctx), (flags)); \
-	} while (0)
+	((void) duk_push_string_file((ctx), (path)), \
+	 (void) duk_push_string((ctx), (path)), \
+	 (void) duk_compile_raw((ctx), (flags)))
 
-#ifdef __cplusplus
-}
-#endif
+#define duk_pcompile_file(ctx,flags,path)  \
+	((void) duk_push_string_file((ctx), (path)), \
+	 (void) duk_push_string((ctx), (path)), \
+	 duk_compile_raw((ctx), (flags) | DUK_COMPILE_SAFE))
 
 /*
  *  Logging
  */
 
 void duk_log(duk_context *ctx, int level, const char *fmt, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  /* DUKTAPE_H_INCLUDED */
 
