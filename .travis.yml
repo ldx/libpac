@@ -1,3 +1,6 @@
 language: c
 compiler: gcc
 script: autoreconf -i && ./configure && make && make check
+after_failure:
+  - cat config.log
+  - cat tests/test-suite.log
