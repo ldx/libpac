@@ -410,7 +410,6 @@ test_proxy http://web.ebscohost.com/x web.ebscohost.com "Found proxy PROXY proxy
 test_proxy http://web.lexis-nexis.com/x web.lexis-nexis.com "Found proxy PROXY proxylib.ntou.edu.tw:3128"
 test_proxy http://web17.epnet.com/x web17.epnet.com "Found proxy PROXY proxylib.ntou.edu.tw:3128"
 test_proxy http://webofknowledge.com/x webofknowledge.com "Found proxy PROXY proxylib.ntou.edu.tw:3128"
-test_proxy http://webofknowledge.com&nbsp;/x webofknowledge.com&nbsp; "Found proxy PROXY proxylib.ntou.edu.tw:3128"
 test_proxy http://wok-ws.isiknowledge.com/x wok-ws.isiknowledge.com "Found proxy PROXY proxylib.ntou.edu.tw:3128"
 test_proxy http://wos.stic.gov.tw/x wos.stic.gov.tw "Found proxy PROXY proxylib.ntou.edu.tw:3128"
 test_proxy http://ws.isiknowledge.com/x ws.isiknowledge.com "Found proxy PROXY proxylib.ntou.edu.tw:3128"
