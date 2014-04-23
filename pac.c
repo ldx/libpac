@@ -151,6 +151,8 @@ static char *find_proxy(duk_context *ctx, char *url, char *host)
 {
     char *proxy = NULL;
 
+    fprintf(stderr, "%s url %s host %s\n", __func__, url, host);
+
     duk_push_global_object(ctx);
     duk_get_prop_string(ctx, -1 /*index*/, "FindProxyForURL");
     duk_push_string(ctx, url);
@@ -186,6 +188,8 @@ static void _pac_find_proxy(void *arg)
     struct proxy_args *pa = arg;
     duk_context *ctx = get_ctx();
 
+    fprintf(stderr, "%s url %s host %s\n", __func__, pa->url, pa->host);
+
     if (!ctx)
         ctx = create_ctx(javascript);
 
@@ -202,6 +206,8 @@ int pac_find_proxy(char *url, char *host,
                    void (*cb)(char *_result, void *_arg), void *arg)
 {
     struct proxy_args *pa = malloc(sizeof(struct proxy_args));
+
+    fprintf(stderr, "%s url %s host %s\n", __func__, url, host);
 
     if (!pa) {
         fprintf(stderr, "Failed to allocate proxy args\n");
