@@ -149,7 +149,8 @@ static duk_context *get_ctx(void)
 
 static char *find_proxy(duk_context *ctx, char *url, char *host)
 {
-    char *proxy = NULL;
+    char *result = NULL;
+    const char *proxy;
 
     duk_push_global_object(ctx);
     duk_get_prop_string(ctx, -1 /*index*/, "FindProxyForURL");
@@ -157,9 +158,11 @@ static char *find_proxy(duk_context *ctx, char *url, char *host)
     duk_push_string(ctx, host);
 
     if (duk_pcall(ctx, 2 /*nargs*/) == DUK_EXEC_SUCCESS) {
-        proxy = strdup(duk_to_string(ctx, -1));
+        proxy = duk_to_string(ctx, -1);
         if (!proxy)
             fprintf(stderr, "Error allocating proxy string\n");
+        else
+            result = strdup(proxy);
     } else {
         fprintf(stderr, "Error: %s\n", duk_to_string(ctx, -1));
     }
@@ -167,7 +170,7 @@ static char *find_proxy(duk_context *ctx, char *url, char *host)
     duk_pop(ctx); /* Result string. */
     duk_pop(ctx); /* Global object. */
 
-    return proxy;
+    return result;
 }
 
 static void main_result(void *arg)
