@@ -225,6 +225,8 @@ int pac_find_proxy(char *url, char *host,
         return -1;
     }
 
+    fprintf(stderr, "%s allocated url %s host %s\n", __func__, pa->url, pa->host);
+
     if (threadpool_schedule(threadpool, _pac_find_proxy, pa) < 0) {
         fprintf(stderr, "Failed to schedule work item\n");
         return -1;
