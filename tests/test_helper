@@ -1,5 +1,16 @@
 #!/bin/sh
 
+rm core*
+ulimit -c unlimited
+
+check_corefile() {
+    if test -n "$(find . -maxdepth 1 -name 'core*' -print -quit)"; then
+        echo "Found corefile, trying to get stack trace."
+        gdb --batch --quiet -ex "thread apply all bt full" -ex "quit" .libs/lt-test_pac core*
+        rm core*
+    fi
+}
+
 test_proxy() {
     _url="$1"
     _host="$2"
@@ -7,6 +18,7 @@ test_proxy() {
     _res=$(./test_pac "$JS" $_url $_host)
     if [ "$_res" != "$_expected_proxy" ]; then
         echo "FAILED:" $_res "!=" $_expected_proxy
+        check_corefile
         RETVAL=1
     else
         echo "OK:" $_url $_host "->" $_res
