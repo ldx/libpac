@@ -191,7 +191,6 @@ static void _pac_find_proxy(void *arg)
 
     if (!ctx)
         ctx = create_ctx(javascript);
-
     if (ctx) {
         pa->result = find_proxy(ctx, pa->url, pa->host);
     } else {
