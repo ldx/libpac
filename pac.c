@@ -230,15 +230,12 @@ int pac_find_proxy(char *url, char *host,
     return 0;
 }
 
-int pac_find_proxy_sync(char *url, char *host, char **proxy)
+int pac_find_proxy_sync(char *js, char *url, char *host, char **proxy)
 {
-    duk_context *ctx = get_ctx();
-
-    if (!ctx)
-        ctx = create_ctx(javascript);
-
+    duk_context *ctx = create_ctx(js);
     if (ctx) {
         *proxy = find_proxy(ctx, url, host);
+        destroy_ctx(ctx);
         return 0;
     } else {
         fprintf(stderr, "Failed to allocated JS context\n");
