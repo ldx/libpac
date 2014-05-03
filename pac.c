@@ -230,6 +230,22 @@ int pac_find_proxy(char *url, char *host,
     return 0;
 }
 
+int pac_find_proxy_sync(char *url, char *host, char **proxy)
+{
+    duk_context *ctx = get_ctx();
+
+    if (!ctx)
+        ctx = create_ctx(javascript);
+
+    if (ctx) {
+        *proxy = find_proxy(ctx, url, host);
+        return 0;
+    } else {
+        fprintf(stderr, "Failed to allocated JS context\n");
+        return -1;
+    }
+}
+
 void pac_run_callbacks(void)
 {
     threadpool_run_callbacks(threadpool);
