@@ -1,6 +1,6 @@
 #!/bin/sh
 
-rm core*
+rm -f core*
 ulimit -c unlimited
 
 check_corefile() {
