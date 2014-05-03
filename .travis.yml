@@ -1,5 +1,7 @@
 language: c
 compiler: gcc
+before_script:
+  - sudo apt-get install gdb
 script: autoreconf -i && ./configure && make && make check
 after_failure:
   - cat config.log
