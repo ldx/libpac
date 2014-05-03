@@ -156,6 +156,9 @@ int util_my_ip_address(char *buf, size_t buflen, int all)
     }
 
     for (a = addrs; a; a = a->ifa_next) {
+        if (!a->ifa_addr)
+            continue;
+
         if (a->ifa_addr->sa_family == AF_INET) {
             sin = (struct sockaddr_in *)a->ifa_addr;
             x = ntohl(sin->sin_addr.s_addr);
