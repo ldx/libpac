@@ -17,6 +17,8 @@
 #include "nsProxyAutoConfig.h"
 #include "util.h"
 
+#include "pac.h"
+
 #define PAC_THREADS 4
 
 static char *javascript;  /* JS code containing FindProxyForURL. */
@@ -32,9 +34,59 @@ struct proxy_args {
     void *arg;
 };
 
+/*
+ * Pluggable logger function. The user can override the default one via
+ * pac_set_log_fn().
+ */
+static void default_log_fn(int level, const char *buf)
+{
+    if (level == PAC_LOGLVL_WARN)
+        fprintf(stderr, "[PAC] %s\n", buf);
+}
+
+static log_fn_type log_fn = default_log_fn;
+
+void pac_set_log_fn(log_fn_type fn)
+{
+    log_fn = fn;
+}
+
+#ifdef __GNUC__
+#define LOG_ATTR __attribute__((format(printf, 2, 3)))
+#else
+#define LOG_ATTR
+#endif
+
+static void _pac_log(int level, const char *fmt, ...) LOG_ATTR;
+
+static void _pac_log(int level, const char *fmt, ...)
+{
+    va_list args;
+    char buf[1024];
+
+    if (!log_fn)
+        return;
+
+    va_start(args,fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    log_fn(level, buf);
+}
+
+#define logw(...) do { \
+    _pac_log(PAC_LOGLVL_WARN, __VA_ARGS__); \
+} while(0)
+#define logi(fmt, ...) do { \
+    _pac_log(PAC_LOGLVL_INFO, __VA_ARGS__); \
+} while(0)
+#define logd(fmt, ...) do { \
+    _pac_log(PAC_LOGLVL_DEBUG, __VA_ARGS__); \
+} while(0)
+
 static void fatal_handler(duk_context *ctx, int code, const char *msg)
 {
-    fprintf(stderr, "Fatal error %s (%d)\n", msg, code);
+    logw("Fatal error: %s (%d).", msg, code);
 }
 
 static int dns_resolve(duk_context *ctx)
@@ -114,8 +166,7 @@ static void *alloc_ctx(char *js)
 
     /* Try to evaluate our Javascript PAC file. */
     if (duk_peval_string(ctx, js) != 0) {
-        printf("Failed to evaluate PAC file: %s\n",
-               duk_safe_to_string(ctx, -1));
+        logw("Failed to evaluate PAC file: %s.", duk_safe_to_string(ctx, -1));
         duk_pop(ctx);
         duk_destroy_heap(ctx);
         errno = EINVAL;
@@ -168,11 +219,11 @@ static char *find_proxy(duk_context *ctx, char *url, char *host)
     if (duk_pcall(ctx, 2 /*nargs*/) == DUK_EXEC_SUCCESS) {
         proxy = duk_to_string(ctx, -1);
         if (!proxy)
-            fprintf(stderr, "Error allocating proxy string\n");
+            logw("Failed to allocate proxy string.");
         else
             result = strdup(proxy);
     } else {
-        fprintf(stderr, "Error: %s\n", duk_to_string(ctx, -1));
+        logw("Javascript call failed: %s.", duk_to_string(ctx, -1));
     }
 
     duk_pop(ctx); /* Result string. */
@@ -202,7 +253,7 @@ static void _pac_find_proxy(void *arg)
     if (ctx) {
         pa->result = find_proxy(ctx, pa->url, pa->host);
     } else {
-        fprintf(stderr, "Failed to allocated JS context\n");
+        logw("Failed to allocate JS context.");
     }
 
     threadpool_schedule_back(threadpool, main_result, pa);
@@ -214,7 +265,7 @@ int pac_find_proxy(char *url, char *host,
     struct proxy_args *pa = malloc(sizeof(struct proxy_args));
 
     if (!pa) {
-        fprintf(stderr, "Failed to allocate proxy args\n");
+        logw("Failed to allocate proxy arguments.");
         return -1;
     }
 
@@ -225,12 +276,12 @@ int pac_find_proxy(char *url, char *host,
     pa->result = NULL;
 
     if (!pa->url || !pa->host) {
-        fprintf(stderr, "Failed to allocate proxy args\n");
+        logw("Failed to allocate proxy arguments.");
         return -1;
     }
 
     if (threadpool_schedule(threadpool, _pac_find_proxy, pa) < 0) {
-        fprintf(stderr, "Failed to schedule work item\n");
+        logw("Failed to schedule work item.");
         return -1;
     }
 
@@ -245,7 +296,7 @@ int pac_find_proxy_sync(char *js, char *url, char *host, char **proxy)
         duk_destroy_heap(ctx);
         return 0;
     } else {
-        fprintf(stderr, "Failed to allocated JS context\n");
+        logw("Failed to allocate JS context.");
         return -1;
     }
 }
@@ -289,7 +340,7 @@ int pac_init(char *js, void (*notify_cb)(void *), void *arg)
 
     threadpool = threadpool_create(PAC_THREADS, notify_cb, arg);
     if (!threadpool) {
-        fprintf(stderr, "Failed to create thread pool\n");
+        logw("Failed to create thread pool.");
         return -1;
     }
 
