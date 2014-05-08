@@ -50,6 +50,7 @@ test_pac.exe
 tests/test-suite.log
 tests/test*.log
 tests/test*.trs
+tests/test_unit*
 
 /build/
 
