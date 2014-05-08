@@ -112,7 +112,15 @@ static void *alloc_ctx(char *js)
     duk_eval_string(ctx, nsProxyAutoConfig0);
     duk_pop(ctx);
 
-    duk_eval_string(ctx, js);
+    /* Try to evaluate our Javascript PAC file. */
+    if (duk_peval_string(ctx, js) != 0) {
+        printf("Failed to evaluate PAC file: %s\n",
+               duk_safe_to_string(ctx, -1));
+        duk_pop(ctx);
+        duk_destroy_heap(ctx);
+        errno = EINVAL;
+        return NULL;
+    }
     duk_pop(ctx);
 
     return ctx;
@@ -255,8 +263,23 @@ static void init_key(void)
     }
 }
 
+static int check_js(char *js)
+{
+    duk_context *ctx = alloc_ctx(js);
+    if (!ctx)
+        return -1;
+
+    duk_destroy_heap(ctx);
+
+    return 0;
+}
+
 int pac_init(char *js, void (*notify_cb)(void *), void *arg)
 {
+    int ret = check_js(js);
+    if (ret)
+        return ret;
+
     if (pthread_once(&key_once, init_key)) {
         perror("Creating thread key");
         return -1;
