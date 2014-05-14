@@ -87,11 +87,11 @@ int util_my_ip_address(char *buf, size_t buflen, int all)
     buf[0] = '\0';
 
     do {
-        dwRet = GetAdaptersAddresses (AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL,
-                                      pAdapterAddresses, &ulBufferLength);
+        dwRet = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL,
+                                     pAdapterAddresses, &ulBufferLength);
         if (dwRet == ERROR_BUFFER_OVERFLOW) {
             if (pAdapterAddresses)
-                free (pAdapterAddresses);
+                free(pAdapterAddresses);
             pAdapterAddresses = malloc(ulBufferLength);
             if (!pAdapterAddresses) {
                 return -1;
@@ -105,40 +105,42 @@ int util_my_ip_address(char *buf, size_t buflen, int all)
         return -1;
     }
 
+    int break_out = 0;
     for (pInfo = pAdapterAddresses; pInfo; pInfo = pInfo->Next) {
         for (pUniAddr = pInfo->FirstUnicastAddress; pUniAddr;
              pUniAddr = pUniAddr->Next) {
             DWORD dwLen = sizeof(tmp);
-            INT iRet = WSAAddressToString(pUniAddr->Address.lpSockaddr,
-                                          pUniAddr->Address.iSockaddrLength,
-                                          NULL, (LPTSTR)tmp, &dwLen);
-            if (iRet)
+            int rc = WSAAddressToString(pUniAddr->Address.lpSockaddr,
+                                        pUniAddr->Address.iSockaddrLength,
+                                        NULL, (LPTSTR)tmp, &dwLen);
+            if (rc)
                 continue;
 
-            if (!all)
-                break;
+            char *percent = strchr(tmp, '%');
+            if (percent)
+                *percent = '\0';
 
-            if (strlen(tmp) + strlen(buf) + 2 > buflen)
+            /* First check if there's enough space in buf. */
+            if (strlen(tmp) + strlen(buf) + 2 > buflen) {
+                /* Buffer too small. Try next address and see if it fits. */
                 continue;
+            }
 
-            if (buf[0] != '\0')
+            /* There's enough space to hold the address plus the semicolon. */
+            if (strlen(buf) > 0)
                 strcat(buf, ";");
             strcat(buf, tmp);
 
             ret = 0;
 
-            /*
-             * PIP_ADAPTER_PREFIX pPrefix;
-             * short family = pUniAddr->Address.lpSockaddr->sa_family;
-             * if (family == AF_INET) {
-             *     struct sockaddr_in *pAddr =
-             *         (struct sockaddr_in *)pUniAddr->Address.lpSockaddr;
-             * } else if (family == AF_INET6) {
-             *     struct sockaddr_in6 *pAddr =
-             *         (struct sockaddr_in6 *)pUniAddr->Address.lpSockaddr;
-             * }
-             */
+            if (!all) {
+                break_out = 1;
+                break;
+            }
         }
+
+        if (break_out)
+            break;
     }
 
     free(pAdapterAddresses);
