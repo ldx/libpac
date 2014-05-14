@@ -50,7 +50,6 @@ TEST test_my_ip_address_all(void)
     PASS();
 }
 
-//int util_dns_resolve(const char *host, char *buf, size_t buflen, int all);
 GREATEST_SUITE(suite)
 {
     RUN_TEST(test_my_ip_address_one);

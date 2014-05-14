@@ -6,7 +6,6 @@
 
 SUITE(suite);
 
-//int util_dns_resolve(const char *host, char *buf, size_t buflen, int all);
 TEST test_dns_resolve_one(void)
 {
     int ret;
