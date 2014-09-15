@@ -148,8 +148,8 @@ out:
 
 static void usage(char *prog)
 {
-    fprintf(stderr, "Usage: %s <PAC javascript code> <URL> <host> "
-            "[<URL> <host> ...]\n", prog);
+    fprintf(stderr, "Usage: %s <PAC file> <URL> <host> [<URL> <host> ...]\n",
+            prog);
     fflush(stderr);
     exit(1);
 }
