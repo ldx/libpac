@@ -61,7 +61,13 @@ int is_notified(notifier_t n, struct timeval *timeout)
 #else
     unsigned char buf[64];
     if (select(n + 1, &fds, NULL, NULL, timeout) > 0) {
-        read(n, buf, sizeof(buf));
+        int rc = read(n, buf, sizeof(buf));
+        if (rc < 0) {
+            fprintf(stderr, "Warning, notifier socket error\n");
+            perror("read()");
+        } else if (rc == 0) {
+            fprintf(stderr, "Warning, notifier socket EOF\n");
+        }
 #endif
         return 1;
     } else {
