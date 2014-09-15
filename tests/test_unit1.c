@@ -8,7 +8,7 @@ TEST pac_init_valid_js(void)
 {
     char *js = "function FindProxyForURL(u, h) { return \"DIRECT\"; }";
 
-    ASSERT(pac_init(js, NULL, NULL) == 0);
+    ASSERT(pac_init(js, 1, NULL, NULL) != NULL);
 
     PASS();
 }
@@ -17,7 +17,7 @@ TEST pac_init_invalid_js(void)
 {
     char *js = "function FindProxyForURL(u, h) { return \"DIRECT\"; } foo;";
 
-    ASSERT(pac_init(js, NULL, NULL) != 0);
+    ASSERT(pac_init(js, 1, NULL, NULL) == NULL);
 
     PASS();
 }

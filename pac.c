@@ -19,14 +19,14 @@
 
 #include "pac.h"
 
-#define PAC_THREADS 4
-
-static char *javascript;  /* JS code containing FindProxyForURL. */
-static pthread_key_t ctx_key;
-static pthread_once_t key_once = PTHREAD_ONCE_INIT;
-static threadpool_t *threadpool;
+struct pac {
+    char *javascript; /* JavaScript PAC code. */
+    duk_context *ctx;
+    threadpool_t *threadpool;
+};
 
 struct proxy_args {
+    struct pac *pac;
     char *url;
     char *host;
     void (*cb)(char *, void *);
@@ -177,35 +177,6 @@ static void *alloc_ctx(char *js)
     return ctx;
 }
 
-static void destroy_ctx(void *arg)
-{
-    duk_context *ctx = arg;
-
-    pthread_setspecific(ctx_key, NULL);
-
-    duk_destroy_heap(ctx);
-}
-
-static duk_context *create_ctx(char *js)
-{
-    duk_context *ctx = pthread_getspecific(ctx_key);
-
-    if (ctx)
-        destroy_ctx(ctx);
-
-    ctx = alloc_ctx(js);
-    pthread_setspecific(ctx_key, ctx);
-
-    return ctx;
-}
-
-static duk_context *get_ctx(void)
-{
-    duk_context *ctx = pthread_getspecific(ctx_key);
-
-    return ctx;
-}
-
 static char *find_proxy(duk_context *ctx, char *url, char *host)
 {
     char *result = NULL;
@@ -246,20 +217,15 @@ static void main_result(void *arg)
 static void _pac_find_proxy(void *arg)
 {
     struct proxy_args *pa = arg;
-    duk_context *ctx = get_ctx();
+    struct pac *pac = pa->pac;
+    duk_context *ctx = pac->ctx;
 
-    if (!ctx)
-        ctx = create_ctx(javascript);
-    if (ctx) {
-        pa->result = find_proxy(ctx, pa->url, pa->host);
-    } else {
-        logw("Failed to allocate JS context.");
-    }
+    pa->result = find_proxy(ctx, pa->url, pa->host);
 
-    threadpool_schedule_back(threadpool, main_result, pa);
+    threadpool_schedule_back(pac->threadpool, main_result, pa);
 }
 
-int pac_find_proxy(char *url, char *host,
+int pac_find_proxy(struct pac *pac, char *url, char *host,
                    void (*cb)(char *_result, void *_arg), void *arg)
 {
     struct proxy_args *pa = malloc(sizeof(struct proxy_args));
@@ -269,6 +235,7 @@ int pac_find_proxy(char *url, char *host,
         return -1;
     }
 
+    pa->pac = pac;
     pa->url = strdup(url);
     pa->host = strdup(host);
     pa->arg = arg;
@@ -280,7 +247,7 @@ int pac_find_proxy(char *url, char *host,
         return -1;
     }
 
-    if (threadpool_schedule(threadpool, _pac_find_proxy, pa) < 0) {
+    if (threadpool_schedule(pac->threadpool, _pac_find_proxy, pa) < 0) {
         logw("Failed to schedule work item.");
         return -1;
     }
@@ -301,17 +268,9 @@ int pac_find_proxy_sync(char *js, char *url, char *host, char **proxy)
     }
 }
 
-void pac_run_callbacks(void)
+void pac_run_callbacks(struct pac *pac)
 {
-    threadpool_run_callbacks(threadpool);
-}
-
-static void init_key(void)
-{
-    if (pthread_key_create(&ctx_key, destroy_ctx)) {
-        perror("pthread_key_create() failed");
-        abort();
-    }
+    threadpool_run_callbacks(pac->threadpool);
 }
 
 static int check_js(char *js)
@@ -325,24 +284,48 @@ static int check_js(char *js)
     return 0;
 }
 
-int pac_init(char *js, void (*notify_cb)(void *), void *arg)
+struct pac *pac_init(char *js, int n_threads, void (*notify_cb)(void *),
+                     void *arg)
 {
+    struct pac *pac = NULL;
     int ret = check_js(js);
     if (ret)
-        return ret;
+        goto err;
 
-    if (pthread_once(&key_once, init_key)) {
-        perror("Creating thread key");
-        return -1;
+    ret = -1;
+
+    pac = calloc(1, sizeof(struct pac));
+    if (!pac) {
+        logw("Error allocating PAC.");
+        goto err;
     }
 
-    javascript = js;
-
-    threadpool = threadpool_create(PAC_THREADS, notify_cb, arg);
-    if (!threadpool) {
-        logw("Failed to create thread pool.");
-        return -1;
+    pac->javascript = strdup(js);
+    pac->ctx = alloc_ctx(js);
+    pac->threadpool = threadpool_create(n_threads, notify_cb, arg);
+    if (!pac->javascript || !pac->ctx || !pac->threadpool) {
+        logw("Error setting up PAC.");
+        goto err;
     }
 
-    return 0;
+    return pac;
+
+err:
+    if (pac && pac->javascript)
+        free(pac->javascript);
+    if (pac && pac->ctx)
+        duk_destroy_heap(pac->ctx);
+    if (pac && pac->threadpool)
+        threadpool_die(pac->threadpool, 1);
+    if (pac)
+        free(pac);
+    return NULL;
+}
+
+void pac_free(struct pac *pac)
+{
+    free(pac->javascript);
+    duk_destroy_heap(pac->ctx);
+    threadpool_die(pac->threadpool, 1);
+    free(pac);
 }

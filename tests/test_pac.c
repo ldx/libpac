@@ -17,6 +17,8 @@
 
 #include "pac.h"
 
+struct pac *pac;
+
 #if defined(_WIN32) || defined(__CYGWIN__)
 #define ERR() WSAGetLastError()
 #else
@@ -182,16 +184,16 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    pac_init(js, notify, (void *)(long)n[1]);
+    pac = pac_init(js, 4, notify, (void *)(long)n[1]);
 
     for (i = 2; i < argc; i += 2) {
         url = argv[i];
         host = argv[i + 1];
-        pac_find_proxy(url, host, proxy_found, NULL);
+        pac_find_proxy(pac, url, host, proxy_found, NULL);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         if (is_notified(n[0], &tv))
-            pac_run_callbacks();
+            pac_run_callbacks(pac);
     }
 
     i = 0;
@@ -199,7 +201,7 @@ int main(int argc, char *argv[])
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         if (is_notified(n[0], &tv))
-            pac_run_callbacks();
+            pac_run_callbacks(pac);
         if (++i > 60)
             exit(1);
     }
