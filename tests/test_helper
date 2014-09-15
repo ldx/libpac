@@ -12,10 +12,11 @@ check_corefile() {
 }
 
 test_proxy() {
-    _url="$1"
-    _host="$2"
-    _expected_proxy="$3"
-    _res=$(./test_pac "$JS" $_url $_host)
+    _pacfile="$1"
+    _url="$2"
+    _host="$3"
+    _expected_proxy="$4"
+    _res=$(./test_pac "$_pacfile" $_url $_host)
     if [ "$_res" != "$_expected_proxy" ]; then
         echo "FAILED:" $_res "!=" $_expected_proxy
         check_corefile

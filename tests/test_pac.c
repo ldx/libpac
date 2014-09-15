@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #if defined(_WIN32) || defined(__CYGWIN__)
 #include <winsock2.h>
@@ -159,9 +162,56 @@ static void proxy_found(char *proxy, void *arg)
     finished++;
 }
 
+static char *read_pacfile(char *pacfile)
+{
+    char *js = NULL;
+    int fd = open(pacfile, O_RDONLY);
+    if (fd < 0) {
+        fprintf(stderr, "Error opening file %s\n", pacfile);
+        goto err;
+    }
+
+    size_t js_sz = 8192, offset = 0;
+    js = calloc(1, js_sz);
+    if (!js) {
+        fprintf(stderr, "Error allocating memory for PAC file\n");
+        goto err;
+    }
+    for (;;) {
+        int rc = read(fd, js + offset, js_sz - offset);
+        if (rc == 0) {
+            break;
+        } else if (rc < 0) {
+            fprintf(stderr, "Error reading from file %s\n", pacfile);
+            perror("read()");
+            goto err;
+        }
+
+        offset += rc;
+        if (offset == js_sz) {
+            js_sz *= 2;
+            js = realloc(js, js_sz);
+            if (!js) {
+                fprintf(stderr, "Error allocating memory for PAC file\n");
+                goto err;
+            }
+        }
+    }
+
+    close(fd);
+    return js;
+
+err:
+    if (fd >= 0)
+        close(fd);
+    if (js)
+        free(js);
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
-    int i;
+    int i, ret = 1;
     char *url, *host, *js;
     struct timeval tv;
     notifier_t n[2];
@@ -177,11 +227,13 @@ int main(int argc, char *argv[])
     if (argc <= 2 || argc % 2 != 0)
         usage(argv[0]);
 
-    js = argv[1];
+    js = read_pacfile(argv[1]);
+    if (!js)
+        goto out;
 
     if (create_notifier(n) < 0) {
         fprintf(stderr, "Failed to create notifier\n");
-        exit(1);
+        goto out;
     }
 
     pac = pac_init(js, 4, notify, (void *)(long)n[1]);
@@ -203,8 +255,12 @@ int main(int argc, char *argv[])
         if (is_notified(n[0], &tv))
             pac_run_callbacks(pac);
         if (++i > 60)
-            exit(1);
+            goto out;
     }
 
-    return 0;
+    ret = 0;
+
+out:
+    free(js);
+    return ret;
 }
