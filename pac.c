@@ -21,8 +21,10 @@
 
 struct pac {
     char *javascript; /* JavaScript PAC code. */
-    duk_context *ctx;
     threadpool_t *threadpool;
+    pthread_mutex_t ctx_mtx;
+    int n_ctx;
+    duk_context **ctx;
 };
 
 struct proxy_args {
@@ -214,13 +216,54 @@ static void main_result(void *arg)
     free(pa);
 }
 
+static duk_context *pop_context(struct pac *pac)
+{
+    int i;
+
+    pthread_mutex_lock(&pac->ctx_mtx);
+
+    for (i = 0; i < pac->n_ctx; i++) {
+        if (pac->ctx[i] != NULL) {
+            struct duk_context *ctx = pac->ctx[i];
+            pac->ctx[i] = NULL;
+            pthread_mutex_unlock(&pac->ctx_mtx);
+            return ctx;
+        }
+    }
+
+    pthread_mutex_unlock(&pac->ctx_mtx);
+
+    assert(0);
+}
+
+static void push_context(struct pac *pac, duk_context *ctx)
+{
+    int i;
+
+    pthread_mutex_lock(&pac->ctx_mtx);
+
+    for (i = 0; i < pac->n_ctx; i++) {
+        if (pac->ctx[i] == NULL) {
+            pac->ctx[i] = ctx;
+            pthread_mutex_unlock(&pac->ctx_mtx);
+            return;
+        }
+    }
+
+    pthread_mutex_unlock(&pac->ctx_mtx);
+
+    assert(0);
+}
+
 static void _pac_find_proxy(void *arg)
 {
     struct proxy_args *pa = arg;
     struct pac *pac = pa->pac;
-    duk_context *ctx = pac->ctx;
+    duk_context *ctx = pop_context(pac);
 
     pa->result = find_proxy(ctx, pa->url, pa->host);
+
+    push_context(pac, ctx);
 
     threadpool_schedule_back(pac->threadpool, main_result, pa);
 }
@@ -288,7 +331,7 @@ struct pac *pac_init(char *js, int n_threads, void (*notify_cb)(void *),
                      void *arg)
 {
     struct pac *pac = NULL;
-    int ret = check_js(js);
+    int i, ret = check_js(js);
     if (ret)
         goto err;
 
@@ -301,10 +344,24 @@ struct pac *pac_init(char *js, int n_threads, void (*notify_cb)(void *),
     }
 
     pac->javascript = strdup(js);
-    pac->ctx = alloc_ctx(js);
+    pac->n_ctx = n_threads; /* One context per worker thread. */
+    pac->ctx = calloc(pac->n_ctx, sizeof(duk_context *));
     pac->threadpool = threadpool_create(n_threads, notify_cb, arg);
     if (!pac->javascript || !pac->ctx || !pac->threadpool) {
         logw("Error setting up PAC.");
+        goto err;
+    }
+
+    for (i = 0; i < pac->n_ctx; i++) {
+        pac->ctx[i] = alloc_ctx(js);
+        if (!pac->ctx[i]) {
+            logw("Error creating PAC context #%d.", i);
+            goto err;
+        }
+    }
+
+    if (pthread_mutex_init(&pac->ctx_mtx, NULL)) {
+        logw("Error initializing mutex.");
         goto err;
     }
 
@@ -313,8 +370,12 @@ struct pac *pac_init(char *js, int n_threads, void (*notify_cb)(void *),
 err:
     if (pac && pac->javascript)
         free(pac->javascript);
-    if (pac && pac->ctx)
-        duk_destroy_heap(pac->ctx);
+    if (pac && pac->ctx) {
+        for (i = 0; i < n_threads; i++)
+            if (pac->ctx[i])
+                duk_destroy_heap(pac->ctx[i]);
+        free(pac->ctx);
+    }
     if (pac && pac->threadpool)
         threadpool_die(pac->threadpool, 1);
     if (pac)
