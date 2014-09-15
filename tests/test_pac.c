@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
         url = argv[i];
         host = argv[i + 1];
         pac_find_proxy(pac, url, host, proxy_found, NULL);
-        tv.tv_sec = 1;
+        tv.tv_sec = 0;
         tv.tv_usec = 0;
         if (is_notified(n[0], &tv))
             pac_run_callbacks(pac);
@@ -256,11 +256,11 @@ int main(int argc, char *argv[])
 
     i = 0;
     while (finished < argc / 2 - 1) {
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
+        tv.tv_sec = 0;
+        tv.tv_usec = 10000;
         if (is_notified(n[0], &tv))
             pac_run_callbacks(pac);
-        if (++i > 60)
+        if (++i > 60 * 100)
             goto out;
     }
 
