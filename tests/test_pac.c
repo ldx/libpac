@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
         goto out;
     }
 
-    pac = pac_init(js, 4, notify, (void *)(long)n[1]);
+    pac = pac_init(js, 16, notify, (void *)(long)n[1]);
 
     for (i = 2; i < argc; i += 2) {
         url = argv[i];
