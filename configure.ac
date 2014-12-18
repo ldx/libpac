@@ -28,7 +28,14 @@ die horribly
 )
 AM_CONDITIONAL(BUILD_WIN32, test x$bwin32 = xtrue)
 
+AC_ARG_ENABLE([deep-c-stack],
+              [  --enable-deep-c-stack build with deep C stack enabled],
+			  [deep_c_stack=true], [deep_c_stack=false])
+
 LOCAL_CPPFLAGS="-std=c99 -pedantic -Wall -O2 -g"
+if test x$deep_c_stack = xtrue; then
+    LOCAL_CPPFLAGS="$LOCAL_CPPFLAGS -DDUK_OPT_DEEP_C_STACK"
+fi
 LOCAL_LDFLAGS=""
 if test "$bwin32" = true; then
     LOCAL_CPPFLAGS="$LOCAL_CPPFLAGS -mno-ms-bitfields -D_WIN32_WINNT=0x0600"
