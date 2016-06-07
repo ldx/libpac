@@ -211,8 +211,6 @@ static void main_result(void *arg)
 
     pa->cb(pa->result, pa->arg);
 
-    free(pa->host);
-    free(pa->url);
     free(pa);
 }
 
@@ -262,6 +260,11 @@ static void _pac_find_proxy(void *arg)
     duk_context *ctx = pop_context(pac);
 
     pa->result = find_proxy(ctx, pa->url, pa->host);
+
+    free(pa->host);
+    pa->host = NULL:
+    free(pa->url);
+    pa->url = NULL;
 
     push_context(pac, ctx);
 
