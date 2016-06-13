@@ -210,10 +210,10 @@ static void main_result(void *arg)
     struct proxy_args *pa = arg;
 
     if (pa->host != NULL) {
-        logw("Assertion error: pa->host == NULL");
+        logw("Assertion error: pa->host == %p", pa->host);
     }
     if (pa->url != NULL) {
-        logw("Assertion error: pa->url == NULL");
+        logw("Assertion error: pa->url == %p", pa->url);
     }
 
     pa->cb(pa->result, pa->arg);
