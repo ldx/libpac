@@ -8,9 +8,11 @@ Libpac is non-blocking and was created with non-blocking, event-based applicatio
 Build
 -----
 
-    $ ./configure
+    $ ./configure --enable-deep-c-stack
     $ make
     $ make check
+
+Note: you need `--enable-deep-c-stack` to have the javascript engine be able to handle deeply recursive stacks (large PAC files with complex checks might require this).
 
 Example
 -------
