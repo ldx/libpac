@@ -25,3 +25,18 @@ test_proxy() {
         echo "OK:" $_url $_host "->" $_res
     fi
 }
+
+test_error() {
+    _pacfile="$1"
+    _url="$2"
+    _host="$3"
+    _expected_error="$4"
+    _res=$(./test_pac "$_pacfile" $_url $_host 2>&1 | grep "$_expected_error")
+    if [ -z "$_res" ]; then
+        echo "FAILED: expected error message \"$_expected_error\""
+        check_corefile
+        RETVAL=1
+    else
+        echo "OK:" $_url $_host "->" $_res
+    fi
+}

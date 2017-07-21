@@ -196,7 +196,18 @@ static char *find_proxy(duk_context *ctx, char *url, char *host)
         else
             result = strdup(proxy);
     } else {
-        logw("Javascript call failed: %s.", duk_to_string(ctx, -1));
+        if (duk_is_error(ctx, -1)) {
+            /*
+             * Accessing .stack might cause an error to be thrown, so
+             * wrap this access in a duk_safe_call() if it matters.
+             */
+            duk_get_prop_string(ctx, -1, "stack");
+            logw("Javascript call failed: %s.", duk_safe_to_string(ctx, -1));
+            duk_pop(ctx); /* Result string. */
+        } else {
+            /* Non-Error value, coerce safely to string. */
+            logw("Javascript call failed: %s.", duk_safe_to_string(ctx, -1));
+        }
     }
 
     duk_pop(ctx); /* Result string. */
