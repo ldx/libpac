@@ -34,7 +34,7 @@ AC_ARG_ENABLE([deep-c-stack],
 
 LOCAL_CPPFLAGS="-std=c99 -pedantic -Wall -O2 -g"
 if test x$deep_c_stack = xtrue; then
-    LOCAL_CPPFLAGS="$LOCAL_CPPFLAGS -DDUK_OPT_DEEP_C_STACK"
+    LOCAL_CPPFLAGS="$LOCAL_CPPFLAGS"
 fi
 LOCAL_LDFLAGS=""
 if test "$bwin32" = true; then
