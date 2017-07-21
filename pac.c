@@ -86,9 +86,9 @@ static void _pac_log(int level, const char *fmt, ...)
     _pac_log(PAC_LOGLVL_DEBUG, __VA_ARGS__); \
 } while(0)
 
-static void fatal_handler(duk_context *ctx, int code, const char *msg)
+static void fatal_handler(void *udata, const char *msg)
 {
-    logw("Fatal error: %s (%d).", msg, code);
+    logw("Fatal error: %s (%p).", msg, udata);
 }
 
 static int dns_resolve(duk_context *ctx)
@@ -229,7 +229,7 @@ static duk_context *pop_context(struct pac *pac)
 
     for (i = 0; i < pac->n_ctx; i++) {
         if (pac->ctx[i] != NULL) {
-            struct duk_context *ctx = pac->ctx[i];
+            duk_context *ctx = pac->ctx[i];
             pac->ctx[i] = NULL;
             pthread_mutex_unlock(&pac->ctx_mtx);
             return ctx;
@@ -396,7 +396,7 @@ err:
 void pac_free(struct pac *pac)
 {
     free(pac->javascript);
-    duk_destroy_heap(pac->ctx);
+    duk_destroy_heap(*pac->ctx);
     threadpool_die(pac->threadpool, 1);
     free(pac);
 }
