@@ -19,6 +19,15 @@
 
 #include "pac.h"
 
+/*
+ * There are external PAC functions with multiple versions: a "plain" one,
+ * returning only one result (e.g. dnsResolve() only returning one IP
+ * address, such as "1.2.3.4"), and an *_ex version, returning optionally
+ * multiple results, concanated via a ';', such as "1.2.3.4;5.6.7.8".
+ */
+#define RETURN_SINGLE_RESULT 0
+#define RETURN_ALL_RESULTS 1
+
 struct pac {
     char *javascript; /* JavaScript PAC code. */
     threadpool_t *threadpool;
@@ -100,24 +109,33 @@ static void fatal_handler(void *udata, const char *msg)
  * which states that (at least for the *Ex versions) the function should
  * return an empty string if an error occurs (and not throw an error).
  */
-static int dns_resolve(duk_context *ctx)
+static int _dns_resolve(duk_context *ctx, int all_results)
 {
     char buf[UTIL_BUFLEN];
     const char *host = duk_require_string(ctx, 0);
 
-    if (util_dns_resolve(host, buf, sizeof(buf), 0) < 0)
+    if (util_dns_resolve(host, buf, sizeof(buf), all_results) < 0)
         buf[0] = '\0';
 
     duk_push_string(ctx, buf);
     return 1;
 }
 
+static int dns_resolve(duk_context *ctx)
+{
+    return _dns_resolve(ctx, RETURN_SINGLE_RESULT);
+}
+
 static int dns_resolve_ex(duk_context *ctx)
 {
-    char buf[UTIL_BUFLEN];
-    const char *host = duk_require_string(ctx, 0);
+    return _dns_resolve(ctx, RETURN_ALL_RESULTS);
+}
 
-    if (util_dns_resolve(host, buf, sizeof(buf), 1) < 0)
+static int _my_ip_address(duk_context *ctx, int all_results)
+{
+    char buf[UTIL_BUFLEN];
+
+    if (util_my_ip_address(buf, sizeof(buf), all_results) < 0)
         buf[0] = '\0';
 
     duk_push_string(ctx, buf);
@@ -126,24 +144,12 @@ static int dns_resolve_ex(duk_context *ctx)
 
 static int my_ip_address(duk_context *ctx)
 {
-    char buf[UTIL_BUFLEN];
-
-    if (util_my_ip_address(buf, sizeof(buf), 0) < 0)
-        buf[0] = '\0';
-
-    duk_push_string(ctx, buf);
-    return 1;
+    return _my_ip_address(ctx, RETURN_SINGLE_RESULT);
 }
 
 static int my_ip_address_ex(duk_context *ctx)
 {
-    char buf[UTIL_BUFLEN];
-
-    if (util_my_ip_address(buf, sizeof(buf), 1) < 0)
-        buf[0] = '\0';
-
-    duk_push_string(ctx, buf);
-    return 1;
+    return _my_ip_address(ctx, RETURN_ALL_RESULTS);
 }
 
 static void *alloc_ctx(char *js)
