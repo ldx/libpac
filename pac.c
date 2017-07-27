@@ -91,17 +91,25 @@ static void fatal_handler(void *udata, const char *msg)
     logw("Fatal error: %s (%p).", msg, udata);
 }
 
+/*
+ * Note: error handling in these function is not standardized. The best
+ * documentation available is:
+ *
+ * https://msdn.microsoft.com/en-us/library/windows/desktop/gg308477(v=vs.85).aspx
+ *
+ * which states that (at least for the *Ex versions) the function should
+ * return an empty string if an error occurs (and not throw an error).
+ */
 static int dns_resolve(duk_context *ctx)
 {
     char buf[UTIL_BUFLEN];
     const char *host = duk_require_string(ctx, 0);
 
-    if (util_dns_resolve(host, buf, sizeof(buf), 0) < 0) {
-        return -1;
-    } else {
-        duk_push_string(ctx, buf);
-        return 1;
-    }
+    if (util_dns_resolve(host, buf, sizeof(buf), 0) < 0)
+        buf[0] = '\0';
+
+    duk_push_string(ctx, buf);
+    return 1;
 }
 
 static int dns_resolve_ex(duk_context *ctx)
@@ -109,36 +117,33 @@ static int dns_resolve_ex(duk_context *ctx)
     char buf[UTIL_BUFLEN];
     const char *host = duk_require_string(ctx, 0);
 
-    if (util_dns_resolve(host, buf, sizeof(buf), 1) < 0) {
-        return -1;
-    } else {
-        duk_push_string(ctx, buf);
-        return 1;
-    }
+    if (util_dns_resolve(host, buf, sizeof(buf), 1) < 0)
+        buf[0] = '\0';
+
+    duk_push_string(ctx, buf);
+    return 1;
 }
 
 static int my_ip_address(duk_context *ctx)
 {
     char buf[UTIL_BUFLEN];
 
-    if (util_my_ip_address(buf, sizeof(buf), 0) < 0) {
-        return -1;
-    } else {
-        duk_push_string(ctx, buf);
-        return 1;
-    }
+    if (util_my_ip_address(buf, sizeof(buf), 0) < 0)
+        buf[0] = '\0';
+
+    duk_push_string(ctx, buf);
+    return 1;
 }
 
 static int my_ip_address_ex(duk_context *ctx)
 {
     char buf[UTIL_BUFLEN];
 
-    if (util_my_ip_address(buf, sizeof(buf), 1) < 0) {
-        return -1;
-    } else {
-        duk_push_string(ctx, buf);
-        return 1;
-    }
+    if (util_my_ip_address(buf, sizeof(buf), 1) < 0)
+        buf[0] = '\0';
+
+    duk_push_string(ctx, buf);
+    return 1;
 }
 
 static void *alloc_ctx(char *js)
