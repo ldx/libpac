@@ -8,11 +8,20 @@ Libpac is non-blocking and was created with non-blocking, event-based applicatio
 Build
 -----
 
-    $ ./configure --enable-deep-c-stack
+You need `autoconf` and `automake`. For the first time, you need to generate `configure`:
+
+    $ autoreconf -i
+
+Then build libpac:
+
+    $ ./configure
     $ make
+
+To run tests:
+
     $ make check
 
-Note: you need `--enable-deep-c-stack` to have the javascript engine be able to handle deeply recursive stacks (large PAC files with complex checks might require this).
+Note: with old versions, you needed `--enable-deep-c-stack` for the javascript engine be able to handle deeply recursive stacks (large PAC files with complex checks might require this).
 
 Example
 -------
@@ -22,7 +31,7 @@ See `tests/test_pac.c` for an example on how to use `libpac`.
 Testing your PAC file
 ---------------------
 
-You can use tests/test_pac to test your PAC file. It takes the path for your PAC file as its first parameter, then an URL and a hostname. E.g.:
+You can use `tests/test_pac` to test your PAC file. It takes the path for your PAC file as its first parameter, then an URL and a hostname. E.g.:
 
     $ ./tests/test_pac ~/pac.js http://mysite.com mysite.com
     Found proxy PROXY 4.5.6.7:8080; PROXY 7.8.9.10:8080
