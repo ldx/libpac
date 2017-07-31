@@ -8,7 +8,13 @@ Libpac is non-blocking and was created with non-blocking, event-based applicatio
 Build
 -----
 
-    $ ./configure --enable-deep-c-stack
+You need `autoconf` and `automake`. For the first time, you need to generate `configure`:
+
+    $ autoreconf -i
+
+Then build libpac:
+
+    $ ./configure
     $ make
     $ make check
 
